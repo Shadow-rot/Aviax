@@ -39,9 +39,26 @@ def cookie_txt_file():
     if not cookies_files:
         logger.warning("No cookie files found in directory")
         return None
-    cookie_file = os.path.join(cookie_dir, random.choice(cookies_files))
-    logger.info(f"Selected cookie file: {cookie_file}")
-    return cookie_file
+    
+    # Try to find a valid Netscape format cookie
+    for cookie_file_name in cookies_files:
+        cookie_file = os.path.join(cookie_dir, cookie_file_name)
+        try:
+            with open(cookie_file, 'r') as f:
+                first_line = f.readline().strip()
+                # Check if it's Netscape format (starts with comment or domain)
+                if first_line.startswith('# Netscape HTTP Cookie File') or not first_line.startswith('{'):
+                    logger.info(f"✅ Selected valid cookie file: {cookie_file}")
+                    return cookie_file
+                else:
+                    logger.warning(f"⚠️ Invalid cookie format in {cookie_file_name}, skipping...")
+        except Exception as e:
+            logger.warning(f"⚠️ Error reading cookie file {cookie_file_name}: {e}")
+            continue
+    
+    # If no valid cookie found, return None
+    logger.error("❌ No valid Netscape format cookie files found")
+    return None
 
 
 async def download_song(link: str):
@@ -49,8 +66,10 @@ async def download_song(link: str):
     logger.info(f"🎵 Starting song download for video_id: {video_id}")
 
     download_folder = "downloads"
+    os.makedirs(download_folder, exist_ok=True)
+    
     # Check if file already exists
-    for ext in ["mp3", "m4a", "webm"]:
+    for ext in ["mp3", "m4a", "webm", "opus"]:
         file_path = f"{download_folder}/{video_id}.{ext}"
         if os.path.exists(file_path):
             logger.info(f"✅ File already exists: {file_path}")
@@ -59,7 +78,7 @@ async def download_song(link: str):
     song_url = f"{API_URL}/song/{video_id}?api={API_KEY}"
     logger.info(f"📡 Sending request to API: {song_url}")
     
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
         for attempt in range(10):
             try:
                 logger.info(f"🔄 Attempt {attempt + 1}/10 - Checking download status...")
@@ -82,14 +101,28 @@ async def download_song(link: str):
                     elif status == "downloading":
                         logger.info("⏳ Still downloading... waiting 4 seconds")
                         await asyncio.sleep(4)
+                    elif status == "error":
+                        error_msg = data.get("error") or data.get("message") or "Unknown API error"
+                        logger.error(f"❌ API error: {error_msg}")
+                        # If it's a format error, return None immediately to use fallback
+                        if "format" in error_msg.lower() or "not available" in error_msg.lower():
+                            logger.warning("⚠️ Format not available on API, will use fallback")
+                            return None
+                        raise Exception(f"API error: {error_msg}")
                     else:
                         error_msg = data.get("error") or data.get("message") or f"Unexpected status '{status}'"
                         logger.error(f"❌ API error: {error_msg}")
                         raise Exception(f"API error: {error_msg}")
+            except aiohttp.ClientError as e:
+                logger.error(f"[FAIL] Attempt {attempt + 1}: Network error - {e}")
+                if attempt == 9:
+                    return None
+                await asyncio.sleep(2)
             except Exception as e:
                 logger.error(f"[FAIL] Attempt {attempt + 1}: {e}")
                 if attempt == 9:
                     return None
+                await asyncio.sleep(2)
         else:
             logger.warning("⏱️ Max retries reached. Still downloading...")
             return None
@@ -98,12 +131,10 @@ async def download_song(link: str):
             file_format = data.get("format", "mp3")
             file_extension = file_format.lower()
             file_name = f"{video_id}.{file_extension}"
-            download_folder = "downloads"
-            os.makedirs(download_folder, exist_ok=True)
             file_path = os.path.join(download_folder, file_name)
 
             logger.info(f"⬇️ Downloading file to: {file_path}")
-            async with session.get(download_url) as file_response:
+            async with session.get(download_url, timeout=aiohttp.ClientTimeout(total=600)) as file_response:
                 total_size = file_response.headers.get('content-length')
                 if total_size:
                     logger.info(f"📦 File size: {int(total_size) / (1024*1024):.2f} MB")
@@ -133,6 +164,8 @@ async def download_video(link: str):
     logger.info(f"🎬 Starting video download for video_id: {video_id}")
 
     download_folder = "downloads"
+    os.makedirs(download_folder, exist_ok=True)
+    
     # Check if file already exists
     for ext in ["mp4", "webm", "mkv"]:
         file_path = f"{download_folder}/{video_id}.{ext}"
@@ -143,7 +176,7 @@ async def download_video(link: str):
     video_url = f"{VIDEO_API_URL}/video/{video_id}?api={API_KEY}"
     logger.info(f"📡 Sending request to API: {video_url}")
     
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
         for attempt in range(10):
             try:
                 logger.info(f"🔄 Attempt {attempt + 1}/10 - Checking download status...")
@@ -166,14 +199,28 @@ async def download_video(link: str):
                     elif status == "downloading":
                         logger.info("⏳ Still downloading... waiting 8 seconds")
                         await asyncio.sleep(8)
+                    elif status == "error":
+                        error_msg = data.get("error") or data.get("message") or "Unknown API error"
+                        logger.error(f"❌ API error: {error_msg}")
+                        # If it's a format error, return None immediately to use fallback
+                        if "format" in error_msg.lower() or "not available" in error_msg.lower():
+                            logger.warning("⚠️ Format not available on API, will use fallback")
+                            return None
+                        raise Exception(f"API error: {error_msg}")
                     else:
                         error_msg = data.get("error") or data.get("message") or f"Unexpected status '{status}'"
                         logger.error(f"❌ API error: {error_msg}")
                         raise Exception(f"API error: {error_msg}")
+            except aiohttp.ClientError as e:
+                logger.error(f"[FAIL] Attempt {attempt + 1}: Network error - {e}")
+                if attempt == 9:
+                    return None
+                await asyncio.sleep(2)
             except Exception as e:
                 logger.error(f"[FAIL] Attempt {attempt + 1}: {e}")
                 if attempt == 9:
                     return None
+                await asyncio.sleep(2)
         else:
             logger.warning("⏱️ Max retries reached. Still downloading...")
             return None
@@ -182,12 +229,10 @@ async def download_video(link: str):
             file_format = data.get("format", "mp4")
             file_extension = file_format.lower()
             file_name = f"{video_id}.{file_extension}"
-            download_folder = "downloads"
-            os.makedirs(download_folder, exist_ok=True)
             file_path = os.path.join(download_folder, file_name)
 
             logger.info(f"⬇️ Downloading file to: {file_path}")
-            async with session.get(download_url) as file_response:
+            async with session.get(download_url, timeout=aiohttp.ClientTimeout(total=600)) as file_response:
                 total_size = file_response.headers.get('content-length')
                 if total_size:
                     logger.info(f"📦 File size: {int(total_size) / (1024*1024):.2f} MB")
@@ -557,13 +602,14 @@ class YouTubeAPI:
 
             logger.info("🎵 Downloading audio with yt-dlp...")
             ydl_optssx = {
-                "format": "bestaudio/best",
+                "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
                 "outtmpl": "downloads/%(id)s.%(ext)s",
                 "geo_bypass": True,
                 "nocheckcertificate": True,
                 "quiet": True,
                 "cookiefile" : cookie_file,
                 "no_warnings": True,
+                "ignoreerrors": True,
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
             info = x.extract_info(link, False)
