@@ -31,8 +31,8 @@ def resize_to_fill(image, target_width, target_height):
     
     return resized.crop((left, top, right, bottom))
 
-def create_planet_background(size):
-    """Create stunning planet with detailed rings"""
+def create_planet_background(size, blur_amount=25):
+    """Create stunning planet with detailed rings and blur"""
     canvas = Image.new('RGBA', size, (5, 8, 22, 255))
     draw = ImageDraw.Draw(canvas)
     width, height = size
@@ -180,6 +180,9 @@ def create_planet_background(size):
         nebula = nebula.filter(ImageFilter.GaussianBlur(35))
         canvas = Image.alpha_composite(canvas, nebula)
     
+    # Apply blur to entire background
+    canvas = canvas.filter(ImageFilter.GaussianBlur(blur_amount))
+    
     return canvas
 
 def create_glass_card(size):
@@ -295,44 +298,49 @@ def create_album_art(thumbnail_path, size=(360, 360)):
         return None
 
 def draw_icon(draw, cx, cy, icon_type, size=16, color=(255, 255, 255, 255)):
-    """Pixel-perfect control icons"""
+    """Pixel-perfect control icons - FIXED"""
     s = size
     
     if icon_type == 'play':
+        # Perfect centered play triangle
         points = [
-            (cx - s//2 + s//4, cy - s),
-            (cx - s//2 + s//4, cy + s),
-            (cx + s + s//4, cy)
+            (cx - s//2, cy - s),
+            (cx - s//2, cy + s),
+            (cx + s, cy)
         ]
         draw.polygon(points, fill=color)
         
     elif icon_type == 'skip_prev':
-        # Vertical bar
+        # Vertical bar on left
+        bar_w = int(s * 0.3)
         draw.rounded_rectangle(
-            [(cx - s - 5, cy - s), (cx - s + s//3, cy + s)],
+            [(cx - s - 2, cy - s), (cx - s + bar_w, cy + s)],
             radius=2, fill=color
         )
-        # Two triangles
-        for offset in [0, -s//1.5]:
+        # Two triangles pointing left
+        triangle_gap = int(s * 0.7)
+        for offset in [0, -triangle_gap]:
             points = [
-                (cx + s//3 + offset, cy),
-                (cx - s//2 + offset, cy - int(s * 0.9)),
-                (cx - s//2 + offset, cy + int(s * 0.9))
+                (cx + s//2 + offset, cy),
+                (cx - s//2 + offset, cy - int(s * 0.85)),
+                (cx - s//2 + offset, cy + int(s * 0.85))
             ]
             draw.polygon(points, fill=color)
     
     elif icon_type == 'skip_next':
-        # Two triangles
-        for offset in [0, s//1.5]:
+        # Two triangles pointing right
+        triangle_gap = int(s * 0.7)
+        for offset in [0, triangle_gap]:
             points = [
-                (cx - s//3 + offset, cy),
-                (cx + s//2 + offset, cy - int(s * 0.9)),
-                (cx + s//2 + offset, cy + int(s * 0.9))
+                (cx - s//2 + offset, cy),
+                (cx + s//2 + offset, cy - int(s * 0.85)),
+                (cx + s//2 + offset, cy + int(s * 0.85))
             ]
             draw.polygon(points, fill=color)
-        # Vertical bar
+        # Vertical bar on right
+        bar_w = int(s * 0.3)
         draw.rounded_rectangle(
-            [(cx + s - s//3, cy - s), (cx + s + 5, cy + s)],
+            [(cx + s - bar_w, cy - s), (cx + s + 2, cy + s)],
             radius=2, fill=color
         )
 
@@ -504,7 +512,7 @@ async def gen_thumb(videoid: str):
                     await f.write(await resp.read())
         
         # Background
-        canvas = create_planet_background((1280, 720))
+        canvas = create_planet_background((1280, 720), blur_amount=20)
         
         # Dust particles
         dust = Image.new('RGBA', (1280, 720), (0, 0, 0, 0))
