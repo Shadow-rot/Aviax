@@ -204,7 +204,7 @@ def create_control_button(size, icon_type, is_primary=False):
             )
         
         # Top highlight
-        highlight_r = radius // 2.5
+        highlight_r = int(radius / 2.5)
         for r in range(highlight_r, 0, -1):
             alpha = int(180 * (r / highlight_r))
             draw.ellipse(
