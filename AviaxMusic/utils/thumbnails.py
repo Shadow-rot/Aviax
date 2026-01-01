@@ -72,10 +72,10 @@ def create_circular_thumbnail(img, size, border_width, border_colors):
     
     result = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     
-    if isinstance(border_colors, tuple):
-        border_img = Image.new("RGBA", (size, size), border_colors)
-    else:
+    if isinstance(border_colors, tuple) and len(border_colors) == 2:
         border_img = create_gradient(size, size, border_colors[0], border_colors[1])
+    else:
+        border_img = Image.new("RGBA", (size, size), border_colors)
     
     border_mask = Image.new("L", (size, size), 0)
     border_draw = ImageDraw.Draw(border_mask)
