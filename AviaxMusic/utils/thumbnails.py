@@ -298,49 +298,72 @@ def create_album_art(thumbnail_path, size=(360, 360)):
         return None
 
 def draw_icon(draw, cx, cy, icon_type, size=16, color=(255, 255, 255, 255)):
-    """Pixel-perfect control icons - FIXED"""
+    """Pixel-perfect control icons - PROPERLY FIXED"""
     s = size
     
     if icon_type == 'play':
-        # Perfect centered play triangle
+        # Perfect centered play triangle (slightly offset right for visual balance)
+        offset = s // 6
         points = [
-            (cx - s//2, cy - s),
-            (cx - s//2, cy + s),
-            (cx + s, cy)
+            (cx - s//2 + offset, cy - s),
+            (cx - s//2 + offset, cy + s),
+            (cx + s + offset, cy)
         ]
         draw.polygon(points, fill=color)
         
     elif icon_type == 'skip_prev':
-        # Vertical bar on left
-        bar_w = int(s * 0.3)
+        # Vertical bar on LEFT side
+        bar_w = int(s * 0.28)
+        bar_x_start = cx - s - 4
         draw.rounded_rectangle(
-            [(cx - s - 2, cy - s), (cx - s + bar_w, cy + s)],
+            [(bar_x_start, cy - s), (bar_x_start + bar_w, cy + s)],
             radius=2, fill=color
         )
-        # Two triangles pointing left
-        triangle_gap = int(s * 0.7)
-        for offset in [0, -triangle_gap]:
-            points = [
-                (cx + s//2 + offset, cy),
-                (cx - s//2 + offset, cy - int(s * 0.85)),
-                (cx - s//2 + offset, cy + int(s * 0.85))
-            ]
-            draw.polygon(points, fill=color)
+        
+        # Two triangles pointing LEFT (toward the bar)
+        triangle_spacing = int(s * 0.65)
+        
+        # First triangle (closer to bar)
+        points1 = [
+            (cx - s//3, cy),
+            (cx - s, cy - int(s * 0.8)),
+            (cx - s, cy + int(s * 0.8))
+        ]
+        draw.polygon(points1, fill=color)
+        
+        # Second triangle (further from bar)
+        points2 = [
+            (cx - s//3 + triangle_spacing, cy),
+            (cx - s + triangle_spacing, cy - int(s * 0.8)),
+            (cx - s + triangle_spacing, cy + int(s * 0.8))
+        ]
+        draw.polygon(points2, fill=color)
     
     elif icon_type == 'skip_next':
-        # Two triangles pointing right
-        triangle_gap = int(s * 0.7)
-        for offset in [0, triangle_gap]:
-            points = [
-                (cx - s//2 + offset, cy),
-                (cx + s//2 + offset, cy - int(s * 0.85)),
-                (cx + s//2 + offset, cy + int(s * 0.85))
-            ]
-            draw.polygon(points, fill=color)
-        # Vertical bar on right
-        bar_w = int(s * 0.3)
+        # Two triangles pointing RIGHT
+        triangle_spacing = int(s * 0.65)
+        
+        # First triangle
+        points1 = [
+            (cx + s//3, cy),
+            (cx + s, cy - int(s * 0.8)),
+            (cx + s, cy + int(s * 0.8))
+        ]
+        draw.polygon(points1, fill=color)
+        
+        # Second triangle
+        points2 = [
+            (cx + s//3 - triangle_spacing, cy),
+            (cx + s - triangle_spacing, cy - int(s * 0.8)),
+            (cx + s - triangle_spacing, cy + int(s * 0.8))
+        ]
+        draw.polygon(points2, fill=color)
+        
+        # Vertical bar on RIGHT side
+        bar_w = int(s * 0.28)
+        bar_x_start = cx + s - bar_w + 4
         draw.rounded_rectangle(
-            [(cx + s - bar_w, cy - s), (cx + s + 2, cy + s)],
+            [(bar_x_start, cy - s), (bar_x_start + bar_w, cy + s)],
             radius=2, fill=color
         )
 
